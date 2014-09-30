@@ -1,0 +1,156 @@
+#!/bin/bash
+
+set -e
+
+PN="${BASH_SOURCE[0]##*/}"
+PD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+DIRECT="${DIRECT:-1}"
+WORK_DIR="${WORK_DIR:-./}"
+OUTPUT_DIR="${OUTPUT_DIR:-./}"
+TESTS="${TESTS:-randread,read,write,randrw}"
+TEST_SECOND="${TEST_SECOND:-60}"
+TEST_FILE_MB="${TEST_FILE_MB:-65536}"
+KEEP_JOB="${KEEP_JOB:-0}"
+
+FIO_DATA_NAME="${FIO_DATA_NAME:-fio_data}"
+MULTI_USERS="1 8 16 32 64"
+RANDREAD_SIZES="4"
+READ_SIZES="4 8 32 128 1024"
+WRITE_SIZES="4 8 32 128 1024"
+RANDRW_SIZES="4"
+
+type fio dd stat tee perl >/dev/null
+
+function usage() {
+	cat <<EOF
+Usage: ${PN} [Options]
+Options:
+  -h         : show this help message
+  -d [0|1]   : do/don't directio, default: '${DIRECT}'
+  -w <path>  : work directory where fio creates a fio and reads and writes, default: '${WORK_DIR}'
+  -o <path>  : output directory, where to put output files, default: '${OUTPUT_DIR}'
+  -t <tests> : tests to run, default: '${TESTS}', options are
+                   randread - IOPS test: (${RANDREAD_SIZES})k by (${MULTI_USERS}) users
+                   read     - MB/s test: (${READ_SIZES})k by (${MULTI_USERS}) users
+                   write    - redo test, ie sync seq writes: (${WRITE_SIZES})k by (${MULTI_USERS}) users
+                   randrw   - workload test: (${RANDRW_SIZES})k read write by (${MULTI_USERS}) users
+  -s <num>   : seconds to run each test for, default: '${TEST_SECOND}'
+  -m <num>   : megabytes for the test I/O file to be used, default: '${TEST_FILE_MB}'
+  -k         : keep work job file after run
+
+Example:
+  ${PN} -w /mnt/fiotest -t readrand -s 10 -m 1000
+EOF
+	[ $# -gt 0 ] && { echo ; echo "$@" ; exit 1 ; }
+	exit 0
+}
+
+opt="$(getopt -o hw:o:t:s:m:k -- "$@")" || usage "Parse options failed"
+
+eval set -- "${opt}"
+while true ; do
+	case "${1}" in
+	-h) usage ; shift ;;
+	-d) DIRECT="${2}" ; shift 2 ;;
+	-w) WORK_DIR="${2}" ; shift 2 ;;
+	-o) OUTPUT_DIR="${2}" ; shift 2 ;;
+	-t) TESTS="${2}" ; shift 2 ;;
+	-s) TEST_SECOND="${2}" ; shift 2 ;;
+	-m) TEST_FILE_MB="${2}" ; shift 2 ;;
+	-k) KEEP_JOB="1" ; shift ;;
+	--) shift ; break ;;
+	*) echo "Internal error!" ; exit 1 ;;
+	esac
+done
+
+function echo_job_global() {
+	cat <<EOF
+[global]
+filename=${FIO_DATA_NAME}
+directory=${WORK_DIR}
+direct=${DIRECT}
+runtime=${TEST_SECOND}
+randrepeat=0
+end_fsync=1
+group_reporting=1
+ioengine=psync
+fadvise_hint=0
+
+EOF
+}
+
+function echo_config() {
+	cat <<EOF
+Configuration:
+  DIRECT       = '${DIRECT}'
+  WORK_DIR     = '${WORK_DIR}'
+  OUTPUT_DIR   = '${OUTPUT_DIR}'
+  TESTS        = '${TESTS}'
+  TEST_SECOND  = '${TEST_SECOND}'
+  TEST_FILE_MB = '${TEST_FILE_MB}'
+  KEEP_JOB     = '${KEEP_JOB}'
+
+EOF
+}
+
+function create_fio_random_data() {
+	echo "Creating fio random data ..."
+	dd if=/dev/urandom of="${WORK_DIR}/${FIO_DATA_NAME}" bs=512 count=$(( ${TEST_FILE_MB} * 1024 * 1024 / 512 ))
+}
+
+function run_fio() {
+	local job="${1}"
+	local block_sizes="${2}"
+	local user_nums="${3}"
+
+	for block_size_kb in ${block_sizes} ; do
+		for usernum in ${user_nums} ; do
+			jobprefix="${OUTPUT_DIR%%/}/fio_${job}_u$(printf "%02d" ${usernum})_kb$(printf "%04d" ${block_size_kb})"
+			echo_job_global > "${jobprefix}.job"
+			cat >> "${jobprefix}.job" <<-EOF
+			[job]
+			rw=${job}
+			bs=${block_size_kb}k
+			numjobs=${usernum}
+
+			EOF
+			echo "$(date): Run fio ${job} ${block_size_kb}k block ${usernum} users"
+			fio "${jobprefix}.job" > "${jobprefix}.out"
+			[ "${KEEP_JOB}" != "1" ] && rm -f "${jobprefix}.job"
+		done
+	done
+}
+
+function main() {
+	local job
+	local jobprefix
+	local usernum
+	local block_size_kb
+	local i
+
+	# process config
+	TESTS="$(sed 's/,\+/ /g' <<<"${TESTS}")"
+
+	echo_config
+
+	if [ ! -f "${WORK_DIR}/${FIO_DATA_NAME}" ] || \
+			[ "$(stat -c %s "${WORK_DIR}/${FIO_DATA_NAME}")" -lt $(( ${TEST_FILE_MB} * 1024 * 1024 )) ]; then
+		create_fio_random_data
+	fi
+
+	# generate job files
+	for job in ${TESTS} ; do
+		case "${job}" in
+		randread)	run_fio "${job}" "${RANDREAD_SIZES}" "${MULTI_USERS}" ;;
+		read)		run_fio "${job}" "${READ_SIZES}" "${MULTI_USERS}" ;;
+		write)		run_fio "${job}" "${WRITE_SIZES}" "${MULTI_USERS}" ;;
+		randrw)		run_fio "${job}" "${RANDRW_SIZES}" "${MULTI_USERS}" ;;
+		esac
+	done
+
+	"${PD}/fioparse.sh" "${OUTPUT_DIR}/fio_"*.out | tee "${OUTPUT_DIR}/fio_summary"
+}
+
+main
+
