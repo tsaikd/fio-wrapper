@@ -19,6 +19,7 @@ RANDREAD_SIZES="${RANDREAD_SIZES:-4,8}"
 READ_SIZES="${READ_SIZES:-4,8,32,128,1024}"
 WRITE_SIZES="${WRITE_SIZES:-4,8,32,128,1024}"
 RANDRW_SIZES="${RANDRW_SIZES:-4,8}"
+FIO_PARSE_OPT="${FIO_PARSE_OPT:-"-v"}"
 
 type fio dd stat tee perl >/dev/null
 
@@ -159,7 +160,7 @@ function main() {
 		esac
 	done
 
-	"${PD}/fioparse.sh" "${OUTPUT_DIR}/fio_"*.out | tee "${OUTPUT_DIR}/fio_summary"
+	"${PD}/fioparse.sh" ${FIO_PARSE_OPT} "${OUTPUT_DIR}/fio_"*.out | tee "${OUTPUT_DIR}/fio_summary"
 }
 
 main
