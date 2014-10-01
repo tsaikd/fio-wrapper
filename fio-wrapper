@@ -134,6 +134,9 @@ function main() {
 
 	echo_config
 
+	mkdir -p "${WORK_DIR}"
+	mkdir -p "${OUTPUT_DIR}"
+
 	if [ ! -f "${WORK_DIR}/${FIO_DATA_NAME}" ] || \
 			[ "$(stat -c %s "${WORK_DIR}/${FIO_DATA_NAME}")" -lt $(( ${TEST_FILE_MB} * 1024 * 1024 )) ]; then
 		create_fio_random_data
