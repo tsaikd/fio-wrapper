@@ -14,11 +14,11 @@ TEST_FILE_MB="${TEST_FILE_MB:-65536}"
 KEEP_JOB="${KEEP_JOB:-0}"
 
 FIO_DATA_NAME="${FIO_DATA_NAME:-fio_data}"
-MULTI_USERS="1 8 16 32 64"
-RANDREAD_SIZES="4 8"
-READ_SIZES="4 8 32 128 1024"
-WRITE_SIZES="4 8 32 128 1024"
-RANDRW_SIZES="4 8"
+MULTI_USERS="${MULTI_USERS:-1,8,16,32,64}"
+RANDREAD_SIZES="${RANDREAD_SIZES:-4,8}"
+READ_SIZES="${READ_SIZES:-4,8,32,128,1024}"
+WRITE_SIZES="${WRITE_SIZES:-4,8,32,128,1024}"
+RANDRW_SIZES="${RANDRW_SIZES:-4,8}"
 
 type fio dd stat tee perl >/dev/null
 
@@ -46,12 +46,21 @@ EOF
 	exit 0
 }
 
+function process_config() {
+	TESTS="$(sed 's/,\+/ /g' <<<"${TESTS}")"
+	MULTI_USERS="$(sed 's/,\+/ /g' <<<"${MULTI_USERS}")"
+	RANDREAD_SIZES="$(sed 's/,\+/ /g' <<<"${RANDREAD_SIZES}")"
+	READ_SIZES="$(sed 's/,\+/ /g' <<<"${READ_SIZES}")"
+	WRITE_SIZES="$(sed 's/,\+/ /g' <<<"${WRITE_SIZES}")"
+	RANDRW_SIZES="$(sed 's/,\+/ /g' <<<"${RANDRW_SIZES}")"
+}
+
 opt="$(getopt -o hw:o:t:s:m:k -- "$@")" || usage "Parse options failed"
 
 eval set -- "${opt}"
 while true ; do
 	case "${1}" in
-	-h) usage ; shift ;;
+	-h) process_config ; usage ; shift ;;
 	-d) DIRECT="${2}" ; shift 2 ;;
 	-w) WORK_DIR="${2}" ; shift 2 ;;
 	-o) OUTPUT_DIR="${2}" ; shift 2 ;;
@@ -129,9 +138,7 @@ function main() {
 	local block_size_kb
 	local i
 
-	# process config
-	TESTS="$(sed 's/,\+/ /g' <<<"${TESTS}")"
-
+	process_config
 	echo_config
 
 	mkdir -p "${WORK_DIR}"
