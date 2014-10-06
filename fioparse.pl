@@ -71,11 +71,11 @@ sub hist_head {
     printf("%6s", "users");
     printf("%5s", "size");
     printf(" %-1.1s", " ");
-    printf("%9s",  "MB    ");
-    printf("%9s", "lat    ");
-    printf("%9s", "min    ");
-    printf("%9s", "max    ");
-    printf("%9s", "std    ");
+    printf("%9s",  "MB/s  ");
+    printf("%9s", "lat(ms)");
+    printf("%9s", "min  ");
+    printf("%9s", "max  ");
+    printf("%9s", "std  ");
     printf("%8s", "IO/s");
     if($verbose == 1) {
         foreach my $time (@output_buckets) {
