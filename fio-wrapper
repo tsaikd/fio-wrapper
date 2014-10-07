@@ -12,6 +12,7 @@ TESTS="${TESTS:-randread,read,write,randrw}"
 TEST_SECOND="${TEST_SECOND:-15}"
 TEST_FILE_MB="${TEST_FILE_MB:-32}"
 KEEP_JOB="${KEEP_JOB:-0}"
+CREATE_RAND_ONLY="${CREATE_RAND_ONLY:-0}"
 
 MULTI_USERS="${MULTI_USERS:-1,8,16,32,64}"
 RANDREAD_SIZES="${RANDREAD_SIZES:-4,8}"
@@ -29,6 +30,7 @@ Options:
   -h         : show this help message
   -d [0|1]   : do/don't directio, default: '${DIRECT}'
   -p <path>  : IO path where fio creates a fio and reads and writes, default: '${IOPATH}'
+  -P <path>  : create random file at the path and exit, default: '${IOPATH}'
   -o <path>  : output directory, where to put output files, default: '${OUTPUT_DIR}'
   -t <tests> : tests to run, default: '${TESTS}', options are
                    randread - IOPS test: (${RANDREAD_SIZES})k by (${MULTI_USERS}) users
@@ -55,7 +57,7 @@ function process_config() {
 	RANDRW_SIZES="$(sed 's/,\+/ /g' <<<"${RANDRW_SIZES}")"
 }
 
-opt="$(getopt -o hd:p:o:t:s:m:k -- "$@")" || usage "Parse options failed"
+opt="$(getopt -o hd:p:P:o:t:s:m:k -- "$@")" || usage "Parse options failed"
 
 eval set -- "${opt}"
 while true ; do
@@ -63,6 +65,7 @@ while true ; do
 	-h) process_config ; usage ; shift ;;
 	-d) DIRECT="${2}" ; shift 2 ;;
 	-p) IOPATH="${2}" ; shift 2 ;;
+	-P) IOPATH="${2}" ; CREATE_RAND_ONLY="1" ; shift 2 ;;
 	-o) OUTPUT_DIR="${2}" ; shift 2 ;;
 	-t) TESTS="${2}" ; shift 2 ;;
 	-s) TEST_SECOND="${2}" ; shift 2 ;;
@@ -134,16 +137,14 @@ function run_fio() {
 function main() {
 	local job
 
-	process_config
-	echo_config
-
 	if [ -e "${IOPATH}" ] ; then
 		if [ -b "${IOPATH}" ] ; then
 			TEST_FILE_MB="$(( $(blockdev --getsize64 "${IOPATH}") / 1024 / 1024 ))"
 			echo "${IOPATH} is a block device, auto setup TEST_FILE_MB=${TEST_FILE_MB}"
 		elif [ -d "${IOPATH}" ] ; then
 			IOPATH="${IOPATH%%/}/fio_data"
-			return main
+			main
+			return $?
 		elif [ ! -f "${IOPATH}" ] ; then
 			create_fio_random_data
 		elif [ "$(stat -c %s "${IOPATH}")" -lt $(( ${TEST_FILE_MB} * 1024 * 1024 )) ] ; then
@@ -154,6 +155,10 @@ function main() {
 	else
 		create_fio_random_data
 	fi
+
+	echo_config
+
+	[ "${CREATE_RAND_ONLY}" == "1" ] && return 0
 
 	mkdir -p "${OUTPUT_DIR}"
 
@@ -170,5 +175,6 @@ function main() {
 	"${PD}/_fioparse.sh" ${FIO_PARSE_OPT} "${OUTPUT_DIR}/fio_"*.out | tee "${OUTPUT_DIR}/fio_summary"
 }
 
+process_config
 main
 
