@@ -28,7 +28,7 @@ AGRUMENTS=""
 VERBOSE=0
 RPLOTS=0
 PERCENTILES=0
-PERLPARSER=$(cd $(dirname $0) && pwd -P)/fioparse.pl
+PERLPARSER=$(cd $(dirname $0) && pwd -P)/_fioparse.pl
 while getopts .hp:vr:. OPTION
 do
      case $OPTION in

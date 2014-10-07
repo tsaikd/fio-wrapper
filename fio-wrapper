@@ -6,14 +6,13 @@ PN="${BASH_SOURCE[0]##*/}"
 PD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 DIRECT="${DIRECT:-1}"
-WORK_DIR="${WORK_DIR:-./}"
+IOPATH="${IOPATH:-fio_data}"
 OUTPUT_DIR="${OUTPUT_DIR:-./}"
 TESTS="${TESTS:-randread,read,write,randrw}"
-TEST_SECOND="${TEST_SECOND:-60}"
-TEST_FILE_MB="${TEST_FILE_MB:-65536}"
+TEST_SECOND="${TEST_SECOND:-15}"
+TEST_FILE_MB="${TEST_FILE_MB:-32}"
 KEEP_JOB="${KEEP_JOB:-0}"
 
-FIO_DATA_NAME="${FIO_DATA_NAME:-fio_data}"
 MULTI_USERS="${MULTI_USERS:-1,8,16,32,64}"
 RANDREAD_SIZES="${RANDREAD_SIZES:-4,8}"
 READ_SIZES="${READ_SIZES:-4,8,32,128,1024}"
@@ -21,7 +20,7 @@ WRITE_SIZES="${WRITE_SIZES:-4,8,32,128,1024}"
 RANDRW_SIZES="${RANDRW_SIZES:-4,8}"
 FIO_PARSE_OPT="${FIO_PARSE_OPT:-"-v"}"
 
-type fio dd stat tee perl >/dev/null
+type fio dd stat blockdev tee perl dirname basename >/dev/null
 
 function usage() {
 	cat <<EOF
@@ -29,7 +28,7 @@ Usage: ${PN} [Options]
 Options:
   -h         : show this help message
   -d [0|1]   : do/don't directio, default: '${DIRECT}'
-  -w <path>  : work directory where fio creates a fio and reads and writes, default: '${WORK_DIR}'
+  -p <path>  : IO path where fio creates a fio and reads and writes, default: '${IOPATH}'
   -o <path>  : output directory, where to put output files, default: '${OUTPUT_DIR}'
   -t <tests> : tests to run, default: '${TESTS}', options are
                    randread - IOPS test: (${RANDREAD_SIZES})k by (${MULTI_USERS}) users
@@ -41,7 +40,7 @@ Options:
   -k         : keep work job file after run
 
 Example:
-  ${PN} -w /mnt/fiotest -t readrand -s 10 -m 1000
+  ${PN} -p /mnt/fiotest -t randread,radnrw -s 60 -m 65536
 EOF
 	[ $# -gt 0 ] && { echo ; echo "$@" ; exit 1 ; }
 	exit 0
@@ -56,14 +55,14 @@ function process_config() {
 	RANDRW_SIZES="$(sed 's/,\+/ /g' <<<"${RANDRW_SIZES}")"
 }
 
-opt="$(getopt -o hw:o:t:s:m:k -- "$@")" || usage "Parse options failed"
+opt="$(getopt -o hd:p:o:t:s:m:k -- "$@")" || usage "Parse options failed"
 
 eval set -- "${opt}"
 while true ; do
 	case "${1}" in
 	-h) process_config ; usage ; shift ;;
 	-d) DIRECT="${2}" ; shift 2 ;;
-	-w) WORK_DIR="${2}" ; shift 2 ;;
+	-p) IOPATH="${2}" ; shift 2 ;;
 	-o) OUTPUT_DIR="${2}" ; shift 2 ;;
 	-t) TESTS="${2}" ; shift 2 ;;
 	-s) TEST_SECOND="${2}" ; shift 2 ;;
@@ -77,8 +76,8 @@ done
 function echo_job_global() {
 	cat <<EOF
 [global]
-filename=${FIO_DATA_NAME}
-directory=${WORK_DIR}
+filename=$(basename "${IOPATH}")
+directory=$(dirname "${IOPATH}")
 direct=${DIRECT}
 runtime=${TEST_SECOND}
 randrepeat=0
@@ -91,22 +90,22 @@ EOF
 }
 
 function echo_config() {
+	local i=12
 	cat <<EOF
 Configuration:
-  DIRECT       = '${DIRECT}'
-  WORK_DIR     = '${WORK_DIR}'
+  IOPATH       = '${IOPATH}'
   OUTPUT_DIR   = '${OUTPUT_DIR}'
   TESTS        = '${TESTS}'
-  TEST_SECOND  = '${TEST_SECOND}'
-  TEST_FILE_MB = '${TEST_FILE_MB}'
-  KEEP_JOB     = '${KEEP_JOB}'
+  TEST_SECOND  = $(printf "%-${i}s" "'${TEST_SECOND}'") TEST_FILE_MB = $(printf "%-${i}s" "'${TEST_FILE_MB}'")
+  DIRECT       = $(printf "%-${i}s" "'${DIRECT}'") KEEP_JOB = $(printf "%-${i}s" "'${KEEP_JOB}'")
 
 EOF
 }
 
 function create_fio_random_data() {
 	echo "Creating fio random data ..."
-	dd if=/dev/urandom of="${WORK_DIR}/${FIO_DATA_NAME}" bs=512 count=$(( ${TEST_FILE_MB} * 1024 * 1024 / 512 ))
+	mkdir -p "$(dirname "${IOPATH}")"
+	dd if=/dev/urandom of="${IOPATH}" bs=512 count=$(( ${TEST_FILE_MB} * 1024 * 1024 / 512 ))
 }
 
 function run_fio() {
@@ -134,21 +133,29 @@ function run_fio() {
 
 function main() {
 	local job
-	local jobprefix
-	local usernum
-	local block_size_kb
-	local i
 
 	process_config
 	echo_config
 
-	mkdir -p "${WORK_DIR}"
-	mkdir -p "${OUTPUT_DIR}"
-
-	if [ ! -f "${WORK_DIR}/${FIO_DATA_NAME}" ] || \
-			[ "$(stat -c %s "${WORK_DIR}/${FIO_DATA_NAME}")" -lt $(( ${TEST_FILE_MB} * 1024 * 1024 )) ]; then
+	if [ -e "${IOPATH}" ] ; then
+		if [ -b "${IOPATH}" ] ; then
+			TEST_FILE_MB="$(( $(blockdev --getsize64 "${IOPATH}") / 1024 / 1024 ))"
+			echo "${IOPATH} is a block device, auto setup TEST_FILE_MB=${TEST_FILE_MB}"
+		elif [ -d "${IOPATH}" ] ; then
+			IOPATH="${IOPATH%%/}/fio_data"
+			return main
+		elif [ ! -f "${IOPATH}" ] ; then
+			create_fio_random_data
+		elif [ "$(stat -c %s "${IOPATH}")" -lt $(( ${TEST_FILE_MB} * 1024 * 1024 )) ] ; then
+			create_fio_random_data
+		else
+			true
+		fi
+	else
 		create_fio_random_data
 	fi
+
+	mkdir -p "${OUTPUT_DIR}"
 
 	# generate job files
 	for job in ${TESTS} ; do
@@ -160,7 +167,7 @@ function main() {
 		esac
 	done
 
-	"${PD}/fioparse.sh" ${FIO_PARSE_OPT} "${OUTPUT_DIR}/fio_"*.out | tee "${OUTPUT_DIR}/fio_summary"
+	"${PD}/_fioparse.sh" ${FIO_PARSE_OPT} "${OUTPUT_DIR}/fio_"*.out | tee "${OUTPUT_DIR}/fio_summary"
 }
 
 main

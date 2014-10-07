@@ -17,20 +17,18 @@ Test only 4k-size random read on a 4G file under `/mnt/fiotest`, with 1, 8
 
 ```bash
 RANDREAD_SIZES=4 MULTI_USERS=1,8,64 \
-fio-wrapper -w /mnt/fiotest -o ~/fio-outputs/randread4k -t randread -m 4096
+fio-wrapper -p /mnt/fiotest -o ~/fio-outputs/randread4k -t randread -m 4096
 ```
 
 will get outputs like:
 
 ```
 Configuration:
-  DIRECT       = '1'
-  WORK_DIR     = '.'
+  IOPATH       = '/mnt/fiotest/fio_data'
   OUTPUT_DIR   = '/root/fio-outputs/randread4k'
   TESTS        = 'randread'
-  TEST_SECOND  = '10'
-  TEST_FILE_MB = '256'
-  KEEP_JOB     = '0'
+  TEST_SECOND  = '15'         TEST_FILE_MB = '4096'
+  DIRECT       = '1'          KEEP_JOB = '0'
 
 Wed Oct  1 22:04:53 CST 2014: Run fio randread 4k block 1 users
 Wed Oct  1 22:05:02 CST 2014: Run fio randread 4k block 8 users
@@ -43,7 +41,6 @@ randread    64   4K r  286.435    0.870    0.042 2838.800   20.163   73327     0
 
 ## Configuration via Environment Variables
 
-* `FIO_DATA_NAME` is default to `fio_data`
 * `MULTI_USERS` is default to `1,8,16,32,64`
 * `RANDREAD_SIZES` is default to `4,8`
 * `READ_SIZES` is default to `4,8,32,128,1024`
