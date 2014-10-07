@@ -19,7 +19,6 @@ RANDREAD_SIZES="${RANDREAD_SIZES:-4,8}"
 READ_SIZES="${READ_SIZES:-4,8,32,128,1024}"
 WRITE_SIZES="${WRITE_SIZES:-4,8,32,128,1024}"
 RANDRW_SIZES="${RANDRW_SIZES:-4,8}"
-FIO_PARSE_OPT="${FIO_PARSE_OPT:-"-v"}"
 
 type fio dd stat blockdev tee perl dirname basename >/dev/null
 
@@ -134,6 +133,15 @@ function run_fio() {
 	done
 }
 
+function run_fioparse() {
+	local f
+	for f in "${OUTPUT_DIR%%/}/fio_"*.out ; do
+		echo "filename=${f}"
+		cat "${f}"
+		echo "END"
+	done | perl "${PD}/_fioparse.pl" "$@"
+}
+
 function main() {
 	local job
 
@@ -174,8 +182,8 @@ function main() {
 		esac
 	done
 
-	"${PD}/_fioparse.sh" ${FIO_PARSE_OPT} "${OUTPUT_DIR}/fio_"*.out | tee "${OUTPUT_DIR}/fio_summary"
-	"${PD}/_fioparse.sh" ${FIO_PARSE_OPT} -z "${OUTPUT_DIR}/fio_"*.out | tee "${OUTPUT_DIR}/fio_summary.txt" >/dev/null
+	run_fioparse verbose | tee "${OUTPUT_DIR}/fio_summary"
+	run_fioparse verbose fillzero | tee "${OUTPUT_DIR}/fio_summary.txt" >/dev/null
 	sed "s/\\s\\+/,/g ; s/^,//g" "${OUTPUT_DIR}/fio_summary.txt" | tee "${OUTPUT_DIR}/fio_summary.csv" >/dev/null
 }
 
