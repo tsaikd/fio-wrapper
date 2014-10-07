@@ -11,6 +11,7 @@ and displays the
 OPTIONS:
    -h              Show this message
    -v              verbose, include histograms in output
+   -z              verbose, include histograms in output, and fill zero instead of empty
    -d              include dtrace data in output
    -p              include I/O latency at percents 95%, 99% and 99.99%
    -r              r format (includes histograms and percentiles)
@@ -29,7 +30,7 @@ VERBOSE=0
 RPLOTS=0
 PERCENTILES=0
 PERLPARSER=$(cd $(dirname $0) && pwd -P)/_fioparse.pl
-while getopts .hp:vr:. OPTION
+while getopts .hp:vzr:. OPTION
 do
      case $OPTION in
          h)
@@ -38,6 +39,10 @@ do
              ;;
          v)
              ARGUMENTS="$ARGUMENTS verbose"
+             VERBOSE=1
+             ;;
+         z)
+             ARGUMENTS="$ARGUMENTS verbose fillzero"
              VERBOSE=1
              ;;
          r)

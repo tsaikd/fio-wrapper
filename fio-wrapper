@@ -137,7 +137,9 @@ function run_fio() {
 function main() {
 	local job
 
-	if [ -e "${IOPATH}" ] ; then
+	if [ -z "${IOPATH}" ] || [ "${IOPATH}" == "/dev/null" ] ; then
+		TESTS=""
+	elif [ -e "${IOPATH}" ] ; then
 		if [ -b "${IOPATH}" ] ; then
 			TEST_FILE_MB="$(( $(blockdev --getsize64 "${IOPATH}") / 1024 / 1024 ))"
 			echo "${IOPATH} is a block device, auto setup TEST_FILE_MB=${TEST_FILE_MB}"
@@ -173,6 +175,8 @@ function main() {
 	done
 
 	"${PD}/_fioparse.sh" ${FIO_PARSE_OPT} "${OUTPUT_DIR}/fio_"*.out | tee "${OUTPUT_DIR}/fio_summary"
+	"${PD}/_fioparse.sh" ${FIO_PARSE_OPT} -z "${OUTPUT_DIR}/fio_"*.out | tee "${OUTPUT_DIR}/fio_summary.txt" >/dev/null
+	sed "s/\\s\\+/,/g ; s/^,//g" "${OUTPUT_DIR}/fio_summary.txt" | tee "${OUTPUT_DIR}/fio_summary.csv" >/dev/null
 }
 
 process_config

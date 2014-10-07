@@ -2,6 +2,7 @@
 $ouputrows=0;
 $DEBUG=0;
 $CLAT=0;
+$fillzero=0;
 
 if ( 1 == $DEBUG ) { $debug=1; }
 
@@ -70,7 +71,7 @@ sub hist_head {
     printf("%8s", "test");
     printf("%6s", "users");
     printf("%5s", "size");
-    printf(" %-1.1s", " ");
+    printf(" %-1.1s", "T");
     printf("%9s",  "MB/s  ");
     printf("%9s", "lat(ms)");
     printf("%9s", "min  ");
@@ -186,7 +187,12 @@ sub print_hist {
                 printf(" %5s",int( 100*($bucketu{$tu}/$iop) ) );
             }
             else {
-                printf(" %5s","");
+                if ( $fillzero ) {
+                    printf(" %5s","0");
+                }
+                else {
+                    printf(" %5s","");
+                }
             }
             $bucketu{$tu}=0;
         }
