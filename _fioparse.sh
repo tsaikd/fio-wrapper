@@ -63,9 +63,9 @@ do
 done
 shift $((OPTIND-1))
 
-for i in $*; do
+for i in "$@"; do
   echo "filename=$i"
-  cat $i 
+  cat "$i"
   echo "END"
 done | \
 perl $PERLPARSER $ARGUMENTS
