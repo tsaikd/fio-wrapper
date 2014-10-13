@@ -71,13 +71,12 @@ sub hist_head {
     printf("%8s", "test");
     printf("%6s", "users");
     printf("%5s", "size");
-    printf(" %-1.1s", "T");
-    printf("%9s",  "MB/s  ");
-    printf("%9s", "lat(ms)");
-    printf("%9s", "min  ");
-    printf("%9s", "max  ");
-    printf("%9s", "std  ");
-    printf("%8s", "IO/s");
+    printf("%9s",  "MB/s ");
+    printf("%10s", "lat(ms)");
+    printf("%10s", "min  ");
+    printf("%10s", "max  ");
+    printf("%10s", "std  ");
+    printf("%7s", "IO/s");
     if($verbose == 1) {
         foreach my $time (@output_buckets) {
             if ( $time > $higbucket ) {
@@ -204,15 +203,14 @@ sub flush_stat_line_simple {
     printf("%6s", $users);
     printf("%5s", $bs);
     if ( $iops{$type} > 0 ) {
-        printf(" %-1.1s", $type);
-        printf("%9.3f", $throughput{$type}/1048576);
-        printf("%9.3f", $lat{$type}/1000);
+        printf(" %8.3f", $throughput{$type}/1048576);
+        printf(" %9.3f", $lat{$type}/1000);
 
-        printf("%9.3f", $latmin{$type}/1000);
-        printf("%9.3f", $latmax{$type}/1000);
-        printf("%9.3f", $latstd{$type}/1000);
+        printf(" %9.3f", $latmin{$type}/1000);
+        printf(" %9.3f", $latmax{$type}/1000);
+        printf(" %9.2f", $latstd{$type}/1000);
 
-        printf("%8s", $iops{$type});
+        printf(" %6s", $iops{$type});
     }
     else {
         printf("%27s ", "");
