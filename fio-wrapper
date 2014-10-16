@@ -20,7 +20,7 @@ READ_SIZES="${READ_SIZES:-4,8,32,128,1024}"
 WRITE_SIZES="${WRITE_SIZES:-4,8,32,128,1024}"
 RANDRW_SIZES="${RANDRW_SIZES:-4,8}"
 
-type fio dd stat blockdev tee perl dirname basename >/dev/null
+type fio dd stat blockdev tee perl dirname basename uname >/dev/null
 
 function usage() {
 	cat <<EOF
@@ -100,7 +100,18 @@ Configuration:
   TESTS        = '${TESTS}'
   TEST_SECOND  = $(printf "%-${i}s" "'${TEST_SECOND}'") TEST_FILE_MB = $(printf "%-${i}s" "'${TEST_FILE_MB}'")
   DIRECT       = $(printf "%-${i}s" "'${DIRECT}'") KEEP_JOB = $(printf "%-${i}s" "'${KEEP_JOB}'")
+EOF
+}
 
+function echo_env() {
+	cat <<EOF
+TEST_SECOND  = '${TEST_SECOND}'
+TEST_FILE_MB = '${TEST_FILE_MB}'
+DIRECT       = '${DIRECT}'
+
+uname    = '$(uname -srvmo)'
+CPU Info = '$(sed -n "/^model name\\s*:\\s*/{s///; p; q}" "/proc/cpuinfo")'
+MemTotal = '$(sed -n "/^MemTotal:\\s*/{s///; p}" "/proc/meminfo")'
 EOF
 }
 
@@ -142,9 +153,7 @@ function run_fioparse() {
 	done | perl "${PD}/_fioparse.pl" "$@"
 }
 
-function main() {
-	local job
-
+function check_config() {
 	if [ -z "${IOPATH}" ] || [ "${IOPATH}" == "/dev/null" ] ; then
 		TESTS=""
 	elif [ -e "${IOPATH}" ] ; then
@@ -153,7 +162,7 @@ function main() {
 			echo "${IOPATH} is a block device, auto setup TEST_FILE_MB=${TEST_FILE_MB}"
 		elif [ -d "${IOPATH}" ] ; then
 			IOPATH="${IOPATH%%/}/fio_data"
-			main
+			check_config
 			return $?
 		elif [ ! -f "${IOPATH}" ] ; then
 			create_fio_random_data
@@ -165,12 +174,23 @@ function main() {
 	else
 		create_fio_random_data
 	fi
+}
 
+function main() {
+	local job
+
+	process_config
+	check_config
 	echo_config
+	echo
 
 	[ "${CREATE_RAND_ONLY}" == "1" ] && return 0
 
 	mkdir -p "${OUTPUT_DIR}"
+
+	# save test env
+	echo_env > "${OUTPUT_DIR}/fio_env"
+	cat /proc/cpuinfo > "${OUTPUT_DIR}/fio_env_cpuinfo"
 
 	# generate job files
 	for job in ${TESTS} ; do
@@ -187,6 +207,5 @@ function main() {
 	sed "s/\\s\\+/,/g ; s/^,//g" "${OUTPUT_DIR}/fio_summary.txt" | tee "${OUTPUT_DIR}/fio_summary.csv" >/dev/null
 }
 
-process_config
 main
 
