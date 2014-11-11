@@ -27,21 +27,21 @@ function usage() {
 Usage: ${PN} [Options]
 Options:
   -h         : show this help message
-  -d [0|1]   : do/don't directio, default: '${DIRECT}'
-  -p <path>  : IO path where fio creates a fio and reads and writes, default: '${IOPATH}'
+  -d [0|1]   : do/don't direct I/O, default: '${DIRECT}'
+  -p <path>  : I/O path where fio creates a fio and reads and writes, default: '${IOPATH}'
   -P <path>  : create random file at the path and exit, default: '${IOPATH}'
   -o <path>  : output directory, where to put output files, default: '${OUTPUT_DIR}'
-  -t <tests> : tests to run, default: '${TESTS}', options are
+  -t <tests> : types of test to run, default to '${TESTS}', options are:
                    randread - IOPS test: (${RANDREAD_SIZES})k by (${MULTI_USERS}) users
                    read     - MB/s test: (${READ_SIZES})k by (${MULTI_USERS}) users
                    write    - redo test, ie sync seq writes: (${WRITE_SIZES})k by (${MULTI_USERS}) users
-                   randrw   - workload test: (${RANDRW_SIZES})k read write by (${MULTI_USERS}) users
+                   randrw   - workload test: (${RANDRW_SIZES})k mixed read/write by (${MULTI_USERS}) users
   -s <num>   : seconds to run each test for, default: '${TEST_SECOND}'
   -m <num>   : megabytes for the test I/O file to be used, default: '${TEST_FILE_MB}'
-  -k         : keep work job file after run
+  -k         : keep the auto generated fio job file
 
 Example:
-  ${PN} -p /mnt/fiotest -t randread,radnrw -s 60 -m 65536
+  ${PN} -p /mnt/fiotest -t randread,randrw -s 60 -m 65536
 EOF
 	[ $# -gt 0 ] && { echo ; echo "$@" ; exit 1 ; }
 	exit 0

@@ -33,6 +33,7 @@ Configuration:
 Wed Oct  1 22:04:53 CST 2014: Run fio randread 4k block 1 users
 Wed Oct  1 22:05:02 CST 2014: Run fio randread 4k block 8 users
 Wed Oct  1 22:05:13 CST 2014: Run fio randread 4k block 64 users
+
     test users size     MB      lat      min      max      std        IO/s  50us   1ms   4ms  10ms  20ms  50ms   .1s    1s    2s   2s+
 randread     1   4K r   28.734    0.133    0.051    2.555    0.014    7356         100     0                                          
 randread     8   4K r  188.817    0.163    0.037   44.086    0.115   48337     0    99     0           0     0                        
