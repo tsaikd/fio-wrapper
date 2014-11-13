@@ -126,6 +126,8 @@ function run_fio() {
 	local block_sizes="${2}"
 	local user_nums="${3}"
 
+    echo "run_fio ${job} ${block} ${username}"
+
 	for block_size_kb in ${block_sizes} ; do
 		for usernum in ${user_nums} ; do
 			jobprefix="${OUTPUT_DIR%%/}/fio_${job}_u$(printf "%02d" ${usernum})_kb$(printf "%04d" ${block_size_kb})"
@@ -139,7 +141,7 @@ function run_fio() {
 			EOF
 			echo "$(date): Run fio ${job} ${block_size_kb}k block ${usernum} users"
 			fio "${jobprefix}.job" > "${jobprefix}.out"
-			[ "${KEEP_JOB}" != "1" ] && rm -f "${jobprefix}.job"
+			[ "${KEEP_JOB}" != "1" ] && rm -f "${jobprefix}.job" || true
 		done
 	done
 }
