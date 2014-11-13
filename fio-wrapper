@@ -116,9 +116,18 @@ EOF
 }
 
 function create_fio_random_data() {
+	local size
+	local seek
 	echo "Creating fio random data ..."
 	mkdir -p "$(dirname "${IOPATH}")"
-	dd if=/dev/urandom of="${IOPATH}" bs=512 count=$(( ${TEST_FILE_MB} * 1024 * 1024 / 512 ))
+	touch "${IOPATH}"
+	size="$(stat -c %s "${IOPATH}")"
+	seek="$(( size / 512 - 1 ))"
+	if [ "${seek}" -gt 0 ] ; then
+		dd if=/dev/urandom of="${IOPATH}" bs=512 count=$(( ${TEST_FILE_MB} * 1024 * 1024 / 512 - ${seek} )) seek="${seek}"
+	else
+		dd if=/dev/urandom of="${IOPATH}" bs=512 count=$(( ${TEST_FILE_MB} * 1024 * 1024 / 512 ))
+	fi
 }
 
 function run_fio() {
